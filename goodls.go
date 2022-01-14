@@ -19,7 +19,7 @@ import (
 
 	"golang.org/x/crypto/ssh/terminal"
 
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 )
 
 const (
@@ -52,6 +52,7 @@ type para struct {
 	Kind                  string
 	Notcreatetopdirectory bool
 	OverWrite             bool
+	ResourceKey           string
 	Resumabledownload     string
 	SearchID              string
 	ShowFileInf           bool
@@ -149,7 +150,7 @@ func (p *para) downloadLargeFile() error {
 		}
 		p.Size = dlfile.Size
 	}
-	res, err := p.fetch(p.URL + "&confirm=" + p.Code)
+	res, err := p.fetch(p.URL + "&confirm=" + p.Code, "")
 	if err != nil {
 		return err
 	}
@@ -174,10 +175,13 @@ func (p *para) checkCookie(rawCookies string) {
 }
 
 // fetch : Fetch data from Google Drive
-func (p *para) fetch(url string) (*http.Response, error) {
+func (p *para) fetch(url string, resourceKeyHeaderValue string) (*http.Response, error) {
 	req, err := http.NewRequest("get", url, nil)
 	if err != nil {
 		return nil, err
+	}
+	if len(resourceKeyHeaderValue) > 0 {
+		req.Header.Add("X-Goog-Drive-Resource-Keys", resourceKeyHeaderValue)
 	}
 	res, err := p.Client.Do(req)
 	if err != nil {
@@ -277,7 +281,7 @@ func (p *para) download(url string) error {
 		return err
 	}
 	p.Client = &http.Client{Jar: jar}
-	res, err := p.fetch(p.URL)
+	res, err := p.fetch(p.URL, "")
 	if err != nil {
 		return err
 	}
@@ -320,6 +324,7 @@ func handler(c *cli.Context) error {
 		DownloadBytes:     -1,
 		Ext:               c.String("extension"),
 		OverWrite:         c.Bool("overwrite"),
+		ResourceKey:       c.String("resourcekey"),
 		Resumabledownload: c.String("resumabledownload"),
 		ShowFileInf:       c.Bool("fileinf"),
 		Skip:              c.Bool("skip"),
@@ -448,6 +453,11 @@ func createHelp() *cli.App {
 			Name:    "skiperror, se",
 			Aliases: []string{"se"},
 			Usage:   "When the files are downloaded from the folder, if an error occurs, the error is skipped by this option.",
+		},
+		&cli.StringFlag{
+			Name:    "resourcekey, rkey",
+			Aliases: []string{"rkey"},
+			Usage:   "ResourceKey of the link.",
 		},
 	}
 	return a
