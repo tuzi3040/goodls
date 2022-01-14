@@ -15,9 +15,7 @@ import (
 	"strings"
 	"time"
 
-	getfilelist "github.com/tanaikech/go-getfilelist"
 	drive "google.golang.org/api/drive/v3"
-	"google.golang.org/api/googleapi/transport"
 )
 
 const (
@@ -74,7 +72,11 @@ func (p *para) downloadFileByAPIKey(file *drive.File) error {
 	p.Client = &http.Client{
 		Timeout: time.Duration(timeOut) * time.Second,
 	}
-	res, err := p.fetch(u.String())
+	resourceKeyHeaderValue := ""
+	if len(file.ResourceKey) > 0 {
+		resourceKeyHeaderValue = fmt.Sprintf("%s/%s", file.Id, file.ResourceKey)
+	}
+	res, err := p.fetch(u.String(), resourceKeyHeaderValue)
 	if err != nil {
 		return err
 	}
@@ -160,7 +162,7 @@ func (p *para) makeDirByCondition(dir string) error {
 }
 
 // initDownload : Download files by Drive API using API key.
-func (p *para) initDownload(fileList *getfilelist.FileListDl) error {
+func (p *para) initDownload(fileList *FileListDl) error {
 	var err error
 	if !p.Disp {
 		fmt.Printf("Download files from a folder '%s'.\n", fileList.SearchedFolder.Name)
@@ -220,7 +222,7 @@ func extToMime(ext string) string {
 }
 
 // dupChkFoldersFiles : Check duplication of folder names and filenames.
-func (p *para) dupChkFoldersFiles(fileList *getfilelist.FileListDl) {
+func (p *para) dupChkFoldersFiles(fileList *FileListDl) {
 	dupChk1 := map[string]bool{}
 	cnt1 := 2
 	for i, folderName := range fileList.FolderTree.Names {
@@ -280,14 +282,11 @@ func (p *para) dupChkFoldersFiles(fileList *getfilelist.FileListDl) {
 
 // getFilesFromFolder: This method is the main method for downloading all files in a shread folder.
 func (p *para) getFilesFromFolder() error {
-	client := &http.Client{
-		Transport: &transport.APIKey{Key: p.APIKey},
-	}
-	fileList, err := func() (*getfilelist.FileListDl, error) {
+	fileList, err := func() (*FileListDl, error) {
 		if len(p.InputtedMimeType) > 0 {
-			return getfilelist.Folder(p.SearchID).MimeType(p.InputtedMimeType).Do(client)
+			return Folder(p.SearchID, p.ResourceKey).MimeType(p.InputtedMimeType).Do(p.APIKey)
 		}
-		return getfilelist.Folder(p.SearchID).Do(client)
+		return Folder(p.SearchID, p.ResourceKey).Do(p.APIKey)
 	}()
 	if err != nil {
 		return err
