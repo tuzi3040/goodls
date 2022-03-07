@@ -33,14 +33,6 @@ func mime2ext(mime string) string {
 	return res
 }
 
-// ext2mime : Convert extension to mimeType.
-func ext2mime(ext string) string {
-	var obj map[string]interface{}
-	json.Unmarshal([]byte(extVsmime), &obj)
-	res, _ := obj[ext].(string)
-	return res
-}
-
 // downloadFileByAPIKey : Download file using API key.
 func (p *para) downloadFileByAPIKey(file *drive.File) error {
 	u, err := url.Parse(driveAPI)

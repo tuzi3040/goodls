@@ -18,7 +18,7 @@ import (
 	"strings"
 	"syscall"
 
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 
 	"github.com/urfave/cli/v2"
 )
@@ -299,7 +299,6 @@ func (p *para) download(url string) error {
 	}
 
 	if res.StatusCode == 200 {
-		// For a small file.
 		// After February, 2022, "Content-Disposition" is not included in the response header for a large file.
 		_, chk := res.Header["Content-Disposition"]
 		if chk {
@@ -360,7 +359,7 @@ func handler(c *cli.Context) error {
 	if envv := os.Getenv(envval); c.String("apikey") == "" && envv != "" {
 		p.APIKey = strings.TrimSpace(envv)
 	}
-	if terminal.IsTerminal(int(syscall.Stdin)) {
+	if term.IsTerminal(int(syscall.Stdin)) {
 		if c.String("url") == "" {
 			createHelp().Run(os.Args)
 			return nil
@@ -404,7 +403,7 @@ func createHelp() *cli.App {
 		{Name: "tanaike [ https://github.com/tanaikech/" + appname + " ] ", Email: "tanaike@hotmail.com"},
 	}
 	a.UsageText = "Download shared files on Google Drive."
-	a.Version = "1.2.8"
+	a.Version = "2.0.0"
 	a.Flags = []cli.Flag{
 		&cli.StringFlag{
 			Name:    "url, u",
