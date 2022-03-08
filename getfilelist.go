@@ -3,14 +3,12 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"strings"
 
 	drive "google.golang.org/api/drive/v3"
 	"google.golang.org/api/googleapi"
-	"google.golang.org/api/option"
 )
 
 const (
@@ -19,7 +17,6 @@ const (
 
 // BaseInfo : Base information
 type BaseInfo struct {
-	APIKey           string
 	CustomFields     string
 	FolderID         string
 	InputtedMimeType []string
@@ -290,16 +287,6 @@ func (b *BaseInfo) getFileInf() error {
 	return nil
 }
 
-// init : Initialize
-func (b *BaseInfo) init() error {
-	srv, err := drive.NewService(context.Background(), option.WithAPIKey(b.APIKey))
-	if err != nil {
-		return err
-	}
-	b.Srv = srv
-	return nil
-}
-
 // Fields : Set fields for file list.
 func (b *BaseInfo) Fields(fields string) *BaseInfo {
 	b.CustomFields = fields
@@ -322,11 +309,8 @@ func (b *BaseInfo) MimeType(mimeType []string) *BaseInfo {
 }
 
 // Do : Retrieve all file list and folder tree under the specific folder.
-func (b *BaseInfo) Do(APIKey string) (*FileListDl, error) {
-	b.APIKey = APIKey
-	if err := b.init(); err != nil {
-		return nil, err
-	}
+func (b *BaseInfo) Do(service *drive.Service) (*FileListDl, error) {
+	b.Srv = service
 	if err := b.getFileInf(); err != nil {
 		return nil, err
 	}

@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
@@ -21,7 +22,7 @@ import (
 
 	drive "google.golang.org/api/drive/v3"
 	"google.golang.org/api/googleapi"
-	"google.golang.org/api/googleapi/transport"
+	"google.golang.org/api/option"
 )
 
 // valResumableDownload : Structure for resumable download
@@ -45,9 +46,7 @@ func (p *para) getFileInfFromP() (*drive.File, error) {
 	v := &valResumableDownload{
 		para: *p,
 	}
-	v.Client = &http.Client{
-		Transport: &transport.APIKey{Key: p.APIKey},
-	}
+	v.Client = &http.Client{}
 	if err := v.getFileInf(); err != nil {
 		return nil, err
 	}
@@ -106,7 +105,7 @@ func getDownloadBytes(size string) (int64, error) {
 	}
 }
 
-// resDownloadFileByAPIKey : Resumagle download by API key.
+// resDownloadFileByAPIKey : Resumable download by API key.
 func (v *valResumableDownload) resDownloadFileByAPIKey() (*http.Response, error) {
 	u, err := url.Parse(driveAPI)
 	if err != nil {
@@ -115,6 +114,7 @@ func (v *valResumableDownload) resDownloadFileByAPIKey() (*http.Response, error)
 	u.Path = path.Join(u.Path, v.DownloadFile.Id)
 	q := u.Query()
 	q.Set("alt", "media")
+	q.Set("key", v.APIKey)
 	u.RawQuery = q.Encode()
 	timeOut := func(size int64) int64 {
 		if size == 0 {
@@ -150,7 +150,7 @@ func (v *valResumableDownload) resDownloadFileByAPIKey() (*http.Response, error)
 
 // getFileInf : Retrieve file infomation using Drive API.
 func (v *valResumableDownload) getFileInf() error {
-	srv, err := drive.New(v.Client)
+	srv, err := drive.NewService(context.Background(), option.WithAPIKey(v.para.APIKey))
 	if err != nil {
 		return err
 	}
@@ -187,7 +187,7 @@ func (v *valResumableDownload) chkResumeFile() (bool, bool, error) {
 	if fs == v.DownloadFile.Size {
 		return false, true, nil
 	} else if fs > v.DownloadFile.Size {
-		return false, false, fmt.Errorf("Size of download file is larger than that of local file. Please confirm the file and URL. FileName is %s. Download URL is %s", v.Filename, v.URL)
+		return false, false, fmt.Errorf("size of download file is larger than that of local file. Please confirm the file and URL. FileName is %s. Download URL is %s", v.Filename, v.URL)
 	}
 	v.Start = fs
 	v.End = func() int64 {
@@ -254,22 +254,22 @@ func (v *valResumableDownload) getStatusMsg(fc, end bool) string {
 	switch {
 	case !fc && !end:
 		st := [][]string{
-			[]string{"Current status", "New download"},
-			[]string{"Save filename", v.Filename},
-			[]string{"Filename in Google Drive", v.DownloadFile.Name},
-			[]string{"Current file size of local [bytes]", strconv.FormatInt(v.CurrentFileSize, 10)},
-			[]string{"File size of Google Drive [bytes]", strconv.FormatInt(v.DownloadFile.Size, 10)},
-			[]string{"This download size [bytes]", strconv.FormatInt(v.Size, 10)},
+			{"Current status", "New download"},
+			{"Save filename", v.Filename},
+			{"Filename in Google Drive", v.DownloadFile.Name},
+			{"Current file size of local [bytes]", strconv.FormatInt(v.CurrentFileSize, 10)},
+			{"File size of Google Drive [bytes]", strconv.FormatInt(v.DownloadFile.Size, 10)},
+			{"This download size [bytes]", strconv.FormatInt(v.Size, 10)},
 		}
 		return getMsg(setIndent(st, 0), " : ")
 	case fc && !end:
 		st := [][]string{
-			[]string{"Current status", "Resumable download"},
-			[]string{"Save filename", v.Filename},
-			[]string{"Filename in Google Drive", v.DownloadFile.Name},
-			[]string{"Current file size of local [bytes]", strconv.FormatInt(v.CurrentFileSize, 10)},
-			[]string{"File size of Google Drive [bytes]", strconv.FormatInt(v.DownloadFile.Size, 10)},
-			[]string{"This download size [bytes]", strconv.FormatInt(v.Size, 10)},
+			{"Current status", "Resumable download"},
+			{"Save filename", v.Filename},
+			{"Filename in Google Drive", v.DownloadFile.Name},
+			{"Current file size of local [bytes]", strconv.FormatInt(v.CurrentFileSize, 10)},
+			{"File size of Google Drive [bytes]", strconv.FormatInt(v.DownloadFile.Size, 10)},
+			{"This download size [bytes]", strconv.FormatInt(v.Size, 10)},
 		}
 		return getMsg(setIndent(st, 0), " : ")
 	case !fc && end:
@@ -279,25 +279,22 @@ func (v *valResumableDownload) getStatusMsg(fc, end bool) string {
 			os.Exit(1)
 		}
 		st := [][]string{
-			[]string{"Current status", "Download has already done."},
-			[]string{"Save filename", v.Filename},
-			[]string{"Filename in Google Drive", v.DownloadFile.Name},
-			[]string{"Current file size of local [bytes]", strconv.FormatInt(v.CurrentFileSize, 10)},
-			[]string{"File size of Google Drive [bytes]", strconv.FormatInt(v.DownloadFile.Size, 10)},
-			[]string{"md5checksum at Google Drive", v.DownloadFile.Md5Checksum},
-			[]string{"md5checksum at Local Drive", cs},
+			{"Current status", "Download has already done."},
+			{"Save filename", v.Filename},
+			{"Filename in Google Drive", v.DownloadFile.Name},
+			{"Current file size of local [bytes]", strconv.FormatInt(v.CurrentFileSize, 10)},
+			{"File size of Google Drive [bytes]", strconv.FormatInt(v.DownloadFile.Size, 10)},
+			{"md5checksum at Google Drive", v.DownloadFile.Md5Checksum},
+			{"md5checksum at Local Drive", cs},
 		}
 		return getMsg(setIndent(st, 0), " : ")
 	default:
-		return fmt.Sprintf("Unknown error.")
+		return fmt.Sprintln("unknown error")
 	}
 }
 
 // resumableDownload : Main method of resumable download.
 func (p *para) resumableDownload() error {
-	p.Client = &http.Client{
-		Transport: &transport.APIKey{Key: p.APIKey},
-	}
 	v := &valResumableDownload{
 		para: *p,
 	}
@@ -305,7 +302,7 @@ func (p *para) resumableDownload() error {
 		return err
 	}
 	if strings.Contains(v.DownloadFile.MimeType, "application/vnd.google-apps") {
-		return fmt.Errorf("Google Docs cannot be resumable downloaded")
+		return fmt.Errorf("a Google Docs file cannot be resumable downloaded")
 	}
 	fc, end, err := v.chkResumeFile()
 	if err != nil {
